@@ -50,18 +50,27 @@ const startServer = async () => {
 
   try {
     console.log(`Connecting to MongoDB at: ${mongoUri.replace(/:([^:@]{4,})@/, ':****@')}`);
-    await mongoose.connect(mongoUri);
+    await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 2500 });
     console.log('✅ MongoDB connected successfully.');
-
-    // Seed default data if database is fresh
-    try {
-      await seedInitialData();
-    } catch (seedErr) {
-      console.warn('Auto-seed notice:', seedErr.message);
-    }
   } catch (err) {
-    console.error('❌ MongoDB connection error:', err.message);
-    console.log('Please verify your MONGO_URI in backend/.env');
+    console.warn('⚠️ Local MongoDB not reachable. Starting In-Memory MongoDB server...');
+    try {
+      const { MongoMemoryServer } = require('mongodb-memory-server');
+      const mongod = await MongoMemoryServer.create();
+      const memUri = mongod.getUri();
+      await mongoose.connect(memUri);
+      console.log('✅ Connected to In-Memory MongoDB successfully.');
+    } catch (memErr) {
+      console.error('❌ Failed to connect to In-Memory MongoDB:', memErr.message);
+      console.log('Please verify your MONGO_URI in backend/.env');
+    }
+  }
+
+  // Seed default data if database is fresh
+  try {
+    await seedInitialData();
+  } catch (seedErr) {
+    console.warn('Auto-seed notice:', seedErr.message);
   }
 
   app.listen(PORT, () => {
